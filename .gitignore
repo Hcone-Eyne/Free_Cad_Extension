@@ -1,0 +1,12 @@
+# Ignore the API Keys and local paths
+Keys/
+__pycache__/
+
+# Ignore the generated 3D files and logs
+output/
+logs/
+*.step
+*.json
+
+# Mac system files
+.DS_Store
