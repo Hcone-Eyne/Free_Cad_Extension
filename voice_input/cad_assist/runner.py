@@ -10,7 +10,7 @@ import sys
 
 # 1. Setup Folder Paths
 # import all folder path from config file
-from Keys.config import output_location, script_location, logs_location, free_cad_cmd
+from voice_input.Keys.config import output_location, script_location, logs_location, free_cad_cmd
 
 # 2. the checker (make sure that output and logs folder exists)
 mandatory_path = [output_location, logs_location]
@@ -63,4 +63,5 @@ def execute_cad_scripts(script_name):
 # 4. test run of runner.py
 if __name__ == "__main__":
     # test the script 
-    execute_cad_scripts("hang.py")
+    execute_cad_scripts("make_box.py")
+    

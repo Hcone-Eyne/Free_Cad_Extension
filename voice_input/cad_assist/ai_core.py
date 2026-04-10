@@ -1,0 +1,78 @@
+''' the translator between ai and source code
+it takes stage manager's memory and voice / text and gives to api (ai) to get a perfect result '''
+
+# importing nessary modules
+from voice_input import stage_manager
+import os
+import requests
+from pathlib import Path
+from dotenv import load_dotenv
+from voice_input.Keys.config import ai_gen_script
+from voice_input import stage_manager
+
+# loading environment variables
+load_dotenv()
+api_key = os.getenv("api_key")
+
+# create function to send prompt to ai i call it "The Translator"
+def translator(user_request):
+    # get memorry from stage manager
+    previous_memory = stage_manager.load_memory()
+
+    # create system instruction
+    system_rule = {
+        "You are a FreeCAD assistant. Only return valid Python code."
+        "NO Explanation Required."
+        "Start with import Path , FreeCad as App."
+        "Export final shape to: 'voice_input/ai_generated_scripts'."
+    }
+
+    # send prompt to ai
+    prompt = f"Previous Context:{previous_memory}\n\n Current Request:{user_request}"
+
+    # unknown / sending request to ai
+    headers = {
+        "Authorization" : f"Bearer {api_key}",
+        "Content-Type" : "application.json "
+    }
+
+    data = {
+        "model":"google/gemma-4-31b-it:free",
+        "messages":[
+            {"role":"system", 
+            "content":system_rule
+            },
+            {"role":"user",
+            "content":prompt
+            }
+        ]
+    }
+
+    # sending response to the ai
+    # headers is waht we builded
+    response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers = headers , json = data)
+
+    # analysis the response and give it to user
+    ai_response = response.json()
+
+    # error handiling
+    if "choices" not in ai_response:
+        print(f"Api Error:{ai_response}")
+        return None
+    # raw data of ai in json format
+    raw_code = ai_response["choices"] [0] ["message"] ["content"]
+
+    # a clean python code (json to py)
+    clean_code = raw_code.replace("'''python", "").replace("'''", "").strip()
+
+    # save generated python script
+    file_name = "ai_gen_script.py"
+    with open(ai_gen_script, "w") as file:
+        file.write(clean_code)
+    print(f"Script of ai generated Saved\n Location:{ai_gen_script}")
+
+    # store the current prompt in memory
+    stage_manager.script_saver(file_name, clean_code)
+
+    # returning output
+    return file_name
