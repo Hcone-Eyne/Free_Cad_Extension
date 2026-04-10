@@ -20,12 +20,15 @@ def translator(user_request):
     previous_memory = stage_manager.load_memory()
 
     # create system instruction
-    system_rule = {
+    # changed from {} to () 
+    # {} must have keys and values
+    # has to be in string(tuple) instead of dict {} 
+    system_rule = (
         "You are a FreeCAD assistant. Only return valid Python code."
         "NO Explanation Required."
         "Start with import Path , FreeCad as App."
         "Export final shape to: 'voice_input/ai_generated_scripts'."
-    }
+    )
 
     # send prompt to ai
     prompt = f"Previous Context:{previous_memory}\n\n Current Request:{user_request}"
@@ -33,11 +36,12 @@ def translator(user_request):
     # unknown / sending request to ai
     headers = {
         "Authorization" : f"Bearer {api_key}",
-        "Content-Type" : "application.json "
+        # no "." use slash instead for better navigation through file/folders
+        "Content-Type" : "application/json "
     }
 
     data = {
-        "model":"google/gemma-4-31b-it:free",
+        "model":"deepseek/deepseek-chat:free",
         "messages":[
             {"role":"system", 
             "content":system_rule
