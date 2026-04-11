@@ -2,8 +2,7 @@
 # this script creates a box and saves it as .step_file
 
 # accessing Freecad Software bulid-in py-terminal of cad
-import sys
-sys.path.append("/Applications/FreeCAD.app/Contents/Resources/lib")
+
 
 # importing all dependencies
 import FreeCAD # type: ignore

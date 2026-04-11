@@ -16,6 +16,14 @@ def script_saver(script_name, script_content, parameters = {"key":"value"}):
     # 1st principle ensure that directory exists
     memory_path.parent.mkdir(parents=True, exist_ok= True)
 
+    # 2nd principle type sheielding preveing loop crash "Not a string"
+    # this condition is going to convert set {} into string()
+    if isinstance(script_content, set):
+        script_name = list(script_name)[0]
+
+    clean_name = str(script_name)
+    clean_parameters = parameters if isinstance(parameters,dict) else {}
+
     # check if file exixts, if not create a NEW ONE!
     if not memory_path.exists() or memory_path.stat().st_size == 0:
         memory_path.touch()
@@ -35,10 +43,15 @@ def script_saver(script_name, script_content, parameters = {"key":"value"}):
 # load the memory to ai
 def load_memory():
     ''' this retrives the last known script from the memory '''
-    # check if memory path exitts
-    if not memory_path.exists():
-        print("memory path isn't exists")
-        # return stops code from being proceed futher
+
+    try:
+        # check if memory path exitts
+        if not memory_path.exists():
+            print("memory path isn't exists")
+            # return stops code from being proceed futher
+            return None
+    except Exception as e:
+        print("Memory is either corrupted or empty")
         return None
     
     # loads json (memory) to ai

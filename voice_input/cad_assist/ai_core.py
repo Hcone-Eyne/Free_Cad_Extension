@@ -17,7 +17,7 @@ api_key = os.getenv("api_key")
 # create function to send prompt to ai i call it "The Translator"
 def translator(user_request):
     # get memorry from stage manager
-    previous_memory = stage_manager.load_memory()
+    previous_memory = stage_manager.get_memory()
 
     # create system instruction
     # changed from {} to () 
@@ -25,9 +25,14 @@ def translator(user_request):
     # has to be in string(tuple) instead of dict {} 
     system_rule = (
         "You are a FreeCAD assistant. Only return valid Python code."
+        "Return ONLY raw Python code."
         "NO Explanation Required."
-        "Start with import Path , FreeCad as App."
-        "Export final shape to: 'voice_input/ai_generated_scripts'."
+        "IMPORTANT: Do not put periods (.) at the end of lines unless it is a method call. "
+        "CRITICAL: Always save the final shape using: part.Shape.exportStep('{str(output_location)}/model.step')."
+        "Start with: import FreeCAD as App, import Part"
+        "Use EXACT syntax: doc.addObject('Part::Feature', 'Name')."
+        "Do NOT include trailing periods or markdown backticks. "
+        "Export final shape to: 'voice_input/ai_generated_scripts."
     )
 
     # send prompt to ai
@@ -37,11 +42,11 @@ def translator(user_request):
     headers = {
         "Authorization" : f"Bearer {api_key}",
         # no "." use slash instead for better navigation through file/folders
-        "Content-Type" : "application/json "
+        "Content-Type":"application/json"
     }
 
     data = {
-        "model":"deepseek/deepseek-chat:free",
+        "model":"openrouter/free",
         "messages":[
             {"role":"system", 
             "content":system_rule
@@ -67,7 +72,7 @@ def translator(user_request):
     raw_code = ai_response["choices"] [0] ["message"] ["content"]
 
     # a clean python code (json to py)
-    clean_code = raw_code.replace("'''python", "").replace("'''", "").strip()
+    clean_code = raw_code.replace("```python", "").replace("```py", "").replace("```", "").strip()
 
     # save generated python script
     file_name = "ai_gen_script.py"
@@ -79,4 +84,4 @@ def translator(user_request):
     stage_manager.script_saver(file_name, clean_code)
 
     # returning output
-    return file_name
+    return str(file_name)
