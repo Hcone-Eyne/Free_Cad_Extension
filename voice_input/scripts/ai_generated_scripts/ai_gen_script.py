@@ -1,26 +1,17 @@
 import FreeCAD as App
-from pathlib import Path
-
-doc = App.newDocument()
-
-box = doc.addObject("Part::Box", "Box")
-box.Length = 50
-box.Width = 20
-box.Height = 10
-
-cyl = doc.addObject("Part::Cylinder", "Hole")
-cyl.Radius = 2.5
-cyl.Height = 15
-cyl.Placement = App.Placement(App.Vector(25, 10, 5), App.Rotation())
-
-cut = doc.addObject("Part::Cut", "Cut")
-cut.Base = box
-cut.Tool = cyl
-
+import Part
+import math
+doc = App.newDocument('Model')
+# Create a cube with sides of 50mm
+cube = Part.makeBox(50, 50, 50)
+# Define the center of the cube
+center_x, center_y, center_z = 25, 25, 25
+# Create a cylinder to serve as the hole
+hole = Part.makeCylinder(10, 50)  # Radius is half the diameter
+hole.translate(App.Vector(center_x, center_y, center_z))
+# Subtract the hole from the cube
+final_shape = cube.cut(hole)
+feature = doc.addObject('Part::Feature', 'Shape')
+feature.Shape = final_shape
 doc.recompute()
-
-step_path = "voice_input/ai_generated_scripts.step"
-dir_path = "voice_input/ai_generated_scripts"
-import os
-os.makedirs(dir_path, exist_ok=True)
-cut.Shape.exportStep(step_path)
+feature.Shape.exportStep('/Users/enoch/Desktop/Free_Cad_Extension/voice_input/scripts/ai_generated_scripts/model.step')

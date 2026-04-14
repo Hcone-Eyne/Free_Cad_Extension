@@ -3,10 +3,12 @@ it stays in loop , takes input gives it to translator(ai_core) and then body(run
 to execute result '''
 
 # importing nessary modules
+import traceback
 import sys
 from voice_input.cad_assist.ai_core import translator
 from voice_input.cad_assist import runner
 from voice_input import stage_manager
+import traceback
 
 # start the engine
 def engine():
@@ -42,6 +44,7 @@ def engine():
             break
         except Exception as e:
             print(f"Loop Crashed Error:{e}")
+            traceback.print_exc()
 
 if __name__ == "__main__":
     engine()
