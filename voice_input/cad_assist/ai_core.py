@@ -9,7 +9,7 @@ import requests
 from pathlib import Path
 from dotenv import load_dotenv
 from voice_input.Keys.config import ai_gen_script, output_location, ai_gen_folder
-from voice_input import stage_manager
+
 
 # transition to external api to hardware run
 import ollama
@@ -166,7 +166,7 @@ def translator(user_request):
     
     
     # 1.extract content from ollama
-    raw_code = response["message"] ["content"]
+    raw_code = response.message.content
 
     # 2.clean python code (removing fen fencess such as '''python and '')
     clean_code = raw_code.replace("```python", "").replace("```py", "").replace("```", "").strip()

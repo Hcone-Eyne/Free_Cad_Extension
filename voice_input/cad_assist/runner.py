@@ -112,7 +112,7 @@ def execute_cad_scripts(script_name):
         )
 
         # if script finished without error it prints sucess 
-        if result.returncode == 0 and "Exception" not in result.stderr and "Error" not in result.stdout:
+        if result.returncode == 0 and "Exception" not in result.stderr and "Error" not in result.stderr:
             print(f"Script Sucessfully Executed \n Script:{script_name}")
             print("Log:\n",result.stdout) # this prints what script printed
             with open(log_report, "w") as file:
