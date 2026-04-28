@@ -8,6 +8,8 @@ class phil_theme:
     text_color = "#1A1A1A"
     tertary_color = "#A9A9A9"
 
+    inside_color = "#F0F0F0"
+
     # indicators
     safe_color = "#34C759"        # Green
     danger_color = "#FF3B30"      # Red
@@ -34,9 +36,22 @@ class Visual_look_Phill(ctk.CTkFrame):
             self,
             text = "Ready To Build",
             text_color = phil_theme.text_color,
-            font = ("Inter",14,"bold")
+            font = ("Inter",14,"bold"),
+            fg_color = "transparent"
         )
         self.status_label.pack(pady = 10, padx = 20)
+
+        # setting up for voice input/ voice recoginsation
+        self.entry = ctk.CTkEntry(
+            self,
+            placeholder_text = "Ask Phil To Build",
+            width = 300,
+            fg_color = phil_theme.inside_color,
+            text_color = phil_theme.text_color,
+            border_color = phil_theme.tertary_color
+        )
+        # binds = attach to widget, self.entry = a field were user can input, <return> is the thing we need for process and "return is like enter"
+        self.entry.bind("<Return>",lambda e: master.user_requests(self.entry.get())) # lambda function used: e takes 1 argument (event) when enter is pressed , master.process_input = recive user text , .get()= gets the text from the entry
         
     # the upgraded version (inferface) of update_state
     def set_status(self, message, state = "normal"):
