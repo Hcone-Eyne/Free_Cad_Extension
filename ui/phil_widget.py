@@ -1,88 +1,133 @@
-# customtkinter is like import all fancy ui 
 import customtkinter as ctk
 
-# setting up theme
+
 class phil_theme:
-    primary_color = "#FFFFFF"
-    secondary_color = "#00BFFF"
-    text_color = "#1A1A1A"
-    tertary_color = "#A9A9A9"
+    bg          = "#18181B"   # window bg
+    pill_bg     = "#27272A"   # pill frame
+    border_idle = "#3F3F46"
+    text_main   = "#FAFAFA"
+    text_dim    = "#A1A1AA"
 
-    inside_color = "#F0F0F0"
+    btn_voice   = "#6366F1"   # indigo
+    btn_text    = "#0EA5E9"   # sky blue
+    btn_hover_v = "#4F46E5"
+    btn_hover_t = "#0284C7"
 
-    # indicators
-    safe_color = "#34C759"        # Green
-    danger_color = "#FF3B30"      # Red
-    thinking_color = "#007AFF"    # Blue
+    safe        = "#22C55E"
+    danger      = "#EF4444"
+    thinking    = "#F59E0B"
 
-# initialising components for the phil
+
 class Visual_look_Phill(ctk.CTkFrame):
-    def __init__(self,master,**kwargs):
+    """
+    Phil's floating pill UI.
+    Layout (top→bottom):
+      1. Status label
+      2. Button row  [🎙 Voice]  [✏ Text]
+      3. Text entry  (hidden until Text-mode is active)
+    """
+
+    def __init__(self, master, **kwargs):
         super().__init__(
             master,
-            fg_color = phil_theme.primary_color,
-            corner_radius = 15,
-            border_width = 1,
-            border_color = phil_theme.tertary_color,
+            fg_color=phil_theme.pill_bg,
+            corner_radius=20,
+            border_width=1,
+            border_color=phil_theme.border_idle,
             **kwargs
         )
-        
-        # creating layout outside of the phil
-        # we gonna use grid layout
-        self.grid_columnconfigure(0,weight= 2)
 
-        # creating a status label to let user know what's happening
+        # ── Status label ──────────────────────────────────────────────
         self.status_label = ctk.CTkLabel(
             self,
-            text = "Ready To Build",
-            text_color = phil_theme.text_color,
-            font = ("Inter",14,"bold"),
-            fg_color = "transparent"
+            text="READY TO BUILD",
+            text_color=phil_theme.text_main,
+            font=("Inter", 12, "bold"),
+            fg_color="transparent",
         )
-        self.status_label.pack(pady = 10, padx = 20)
+        self.status_label.pack(pady=(12, 4), padx=20)
 
-        # setting up for voice input/ voice recoginsation
+        # ── Button row ────────────────────────────────────────────────
+        btn_row = ctk.CTkFrame(self, fg_color="transparent")
+        btn_row.pack(pady=(0, 8), padx=16)
+
+        self.voice_btn = ctk.CTkButton(
+            btn_row,
+            text="🎙  Voice",
+            width=120, height=32,
+            corner_radius=10,
+            fg_color=phil_theme.btn_voice,
+            hover_color=phil_theme.btn_hover_v,
+            text_color="#FFFFFF",
+            font=("Inter", 12, "bold"),
+            command=master.on_voice_click,
+        )
+        self.voice_btn.pack(side="left", padx=(0, 8))
+
+        self.text_btn = ctk.CTkButton(
+            btn_row,
+            text="✏  Text",
+            width=120, height=32,
+            corner_radius=10,
+            fg_color=phil_theme.btn_text,
+            hover_color=phil_theme.btn_hover_t,
+            text_color="#FFFFFF",
+            font=("Inter", 12, "bold"),
+            command=master.on_text_click,
+        )
+        self.text_btn.pack(side="left")
+
+        # ── Text entry (hidden by default) ────────────────────────────
+        self.entry_frame = ctk.CTkFrame(self, fg_color="transparent")
+        # not packed yet — shown only in text-mode
+
         self.entry = ctk.CTkEntry(
-            self,
-            placeholder_text = "Ask Phil To Build",
-            width = 300,
-            fg_color = phil_theme.inside_color,
-            text_color = phil_theme.text_color,
-            border_color = phil_theme.tertary_color
+            self.entry_frame,
+            placeholder_text="Type your command…",
+            width=270, height=32,
+            fg_color="#3F3F46",
+            text_color=phil_theme.text_main,
+            border_color=phil_theme.btn_text,
+            font=("Inter", 12),
         )
-        # binds = attach to widget, self.entry = a field were user can input, <return> is the thing we need for process and "return is like enter"
-        self.entry.bind("<Return>",lambda e: master.user_requests(self.entry.get())) # lambda function used: e takes 1 argument (event) when enter is pressed , master.process_input = recive user text , .get()= gets the text from the entry
-        
-    # the upgraded version (inferface) of update_state
-    def set_status(self, message, state = "normal"):
-        # remote control of phil apperance
-        # changes the ui text and border based on phil
-        self.status_label.configure(text = message.upper())
+        self.entry.pack(side="left", padx=(0, 6))
+        self.entry.bind("<Return>", lambda e: master.on_text_submit(self.entry.get()))
 
-        if state == "safe":
-            self.configure(border_color = phil_theme.safe_color)
-        elif state == "danger":
-            self.configure(border_color = phil_theme.danger_color)
-        elif state == "thinking":
-            self.configure(border_color = phil_theme.thinking_color)
-        else:
-            self.configure(border_color = phil_theme.tertary_color)
+        send_btn = ctk.CTkButton(
+            self.entry_frame,
+            text="→",
+            width=32, height=32,
+            corner_radius=8,
+            fg_color=phil_theme.btn_text,
+            hover_color=phil_theme.btn_hover_t,
+            font=("Inter", 14, "bold"),
+            command=lambda: master.on_text_submit(self.entry.get()),
+        )
+        send_btn.pack(side="left")
 
+    # ── Public helpers ────────────────────────────────────────────────
 
-# --- TESTING BLOCK ---
-# This part only runs if you play THIS file directly
-if __name__ == "__main__":
-    # 1. Create the main "hidden" window
-    root = ctk.CTk()
-    root.title("Phil Widget Test")
-    root.geometry("400x200")
+    def set_status(self, message: str, state: str = "normal"):
+        self.status_label.configure(text=message.upper())
+        colors = {
+            "safe":     phil_theme.safe,
+            "danger":   phil_theme.danger,
+            "thinking": phil_theme.thinking,
+            "normal":   phil_theme.border_idle,
+        }
+        self.configure(border_color=colors.get(state, phil_theme.border_idle))
 
-    # 2. "Instantiate" your class (This is building the car from the blueprint)
-    test_pill = Visual_look_Phill(master=root)
-    
-    # 3. Put it on the screen
-    test_pill.pack(pady=50)
+    def show_text_entry(self):
+        self.entry_frame.pack(pady=(0, 10), padx=16)
+        self.entry.delete(0, "end")
+        self.entry.focus()
 
-    # 4. Start the app
-    print("Phil is alive! Closing this window will stop the script.")
-    root.mainloop()
+    def hide_text_entry(self):
+        self.entry_frame.pack_forget()
+
+    def set_voice_active(self, active: bool):
+        color = phil_theme.danger if active else phil_theme.btn_voice
+        self.voice_btn.configure(
+            fg_color=color,
+            text="⏹  Stop" if active else "🎙  Voice",
+        )
