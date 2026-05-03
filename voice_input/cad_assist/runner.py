@@ -2,8 +2,8 @@
 runner.py tries to fix if not it stores the cause of error for later fixex '''
 
 # importing nessary modules
-from sys import stdout
 import subprocess
+from sys import stdout
 import os
 from pathlib import Path
 import sys
@@ -40,9 +40,8 @@ def defense_wall(script_path):
         # check for forbidden
         if any(key in line for key in forbidden):
             continue
-        # strips whitespace and keep the structire
-        if line.strip():
-            cleaned_lines.append(line.rstrip()) 
+        # FIXED: removed "if line.strip()" gate — blank lines matter for code structure
+        cleaned_lines.append(line.rstrip())
 
     full_code = "\n".join(cleaned_lines)
     
@@ -62,11 +61,48 @@ def defense_wall(script_path):
             file.write(f"syntax_error:{e}")
         return False
 
+# adding helper for correction function
+# helper 1
+def correction_runner(script_path):
+    # calling the correction function
+    return subprocess.run(
+        [free_cad_cmd, str(script_path)],
+        capture_output = True,
+        text = True,
+        timeout = 20
+    )
+
+# this checks if the script suceeeded or not and returns True or False
+# like checks if script runner without error
+# NOTE: freecad sometimes puts errors in stdout instead of stderr, so we check both
+# helper 2
+def script_verifier(result):
+    return(
+        result.returncode == 0
+        and "Exception" not in result.stderr
+        and "Error" not in result.stderr
+        and "Exception" not in result.stdout
+        and "Error" not in result.stdout
+    )
+# helper 3
+# this does is checks whichever stream (stderr or stdout) actually has the error message
+def error_catcher(result):
+    if result.stderr and result.stderr.strip():
+        return result.stderr
+    if result.stdout and result.stdout.strip():
+        return result.stdout
+    return "Unknown Error"
+
 # 3. the executor (runns all the function)
 def execute_cad_scripts(script_name):
+
+    # i used import here to prevent 2 files fighting for access
+    from voice_input.command_bridge import self_corrector
+    
     # mentioning script path
     script_path_use = ai_gen_folder / script_name
     print(f"Running Script:",(script_name))
+    
     # we define this so every part of code can access / see this
     log_report = logs_location / "error.report.txt"
 
@@ -104,15 +140,10 @@ def execute_cad_scripts(script_name):
 
     try:
         # we try to run and capture the outcome of this
-        result = subprocess.run (
-            [free_cad_cmd, str(script_path_use)],
-            capture_output= True,
-            text = True,
-            timeout = 20
-        )
+        result = correction_runner(script_path_use)
 
         # if script finished without error it prints sucess 
-        if result.returncode == 0 and "Exception" not in result.stderr and "Error" not in result.stderr:
+        if script_verifier(result):
             print(f"Script Sucessfully Executed \n Script:{script_name}")
             print("Log:\n",result.stdout) # this prints what script printed
             with open(log_report, "w") as file:
@@ -121,15 +152,46 @@ def execute_cad_scripts(script_name):
         else:
             # if failed we notify and store info in logs
             print(f"Failed \nCrash Script:{script_name}")
+            print(f"Error Detected")
 
+            # -------- self correction loop ----------
+            # fixing the broken script
+            max_attempts = 3
+            fixed = False
+
+            # catch
+            error_message = error_catcher(result)
+
+            # initialising the loop
+            for attempt in range(1, max_attempts + 1):
+                print(f"Self Correction Triggered\nAttempt {attempt}/{max_attempts}")
+                new_code = self_corrector(script_path_use, error_message)
+                with open(script_path_use,"w") as file:
+                    file.write(new_code)
+                print("Code Successfully Corrected")
+                # running defence wall
+                defense_wall(script_path_use)
+                retry_result = correction_runner(script_path_use)
+                if script_verifier(retry_result):
+                    print("Code fixed successfully")
+                    fixed = True
+                    break
+                else:
+                    print("Correction did not work")
+                    error_message = error_catcher(retry_result)
+            if not fixed:
+                print("Failed to fix script after max attempts")
+
+            # execute again
+            print("Self Correction Is Made, Rerunning the code")
             
             # we have to create (if not exists) and write error report
             with open (log_report,"w") as file:
                 file.write("qwen 2.5 crash report\n")
                 file.write(f"Stdout:{result.stdout}\n")
                 file.write(f"Stderr:{result.stderr}\n")
-
             print(f"Error Details Are Stored in ", {log_report})
+
     except subprocess.TimeoutExpired:
         # this part gonna catch the time breaker even
         print(f"Time Exceeded! Script took too long to run Perphaps Long infinte loop? \nUsed Script:{script_name}")
@@ -137,7 +199,6 @@ def execute_cad_scripts(script_name):
         with open(log_report,"w") as file:
             file.write("Error: Execution Time Exceeded")
         print(f"Time_Out Details Stored in:{log_report}")
-
     
 # 4. test run of runner.py
 if __name__ == "__main__":

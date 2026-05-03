@@ -10,6 +10,7 @@
 
 from voice_input.cad_assist.ai_core import translator
 from voice_input.cad_assist import runner
+import ollama
 
 
 # Words that mean "stop" — we check for these before doing any work.
@@ -51,3 +52,30 @@ def process_command(user_input: str) -> bool:
     runner.execute_cad_scripts(generated_script)
     print("[Bridge] Script execution complete.")
     return True
+
+# initializing self correction ability / fixer
+def self_corrector(script_path,error_message):
+    # read the failed code
+    with open(script_path,"r") as file:
+        error_code = file.read()
+
+    # creating fixing prompt
+    fixing_prompt = (
+        f"The following FreeCAD script failed with an error.\n"
+        f"ERROR: {error_message}\n"
+        f"FAILED CODE:\n{error_code}\n"
+        f"Please provide only the corrected Python code that fixes this specific error. "
+        f"Maintain the same header and footer rules."
+    )
+    
+    # using ollama to fix the error
+    response = ollama.chat(model = "qwen2.5-coder:7b", messages=[
+        {"role":"system","content":"You are a FreeCAD Python debugger. Return ONLY raw code.",},
+        {"role":"user","content":fixing_prompt}
+    ])
+
+    # cleaning the code
+    raw_fix = response.message.content
+    clean_fix = raw_fix.replace("```python", "").replace("```", "").strip()
+
+    return clean_fix

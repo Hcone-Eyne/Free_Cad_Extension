@@ -101,6 +101,20 @@ def translator(user_request):
         Re-create all previous context objects before adding new ones.
         If unclear, make a reasonable default shape.
         NEVER skip doc = App.newDocument('Model').
+        NEVER use math functions unless the geometry explicitly requires them. 
+        Part.makeBox(length, width, height) needs no math. Use it directly.
+        When creating holes in a shape, ALWAYS use .cut() to subtract each hole cylinder from the base shape. 
+        Never leave hole cylinders as separate floating objects. 
+        Example: plate = plate.cut(hole1).cut(hole2).cut(hole3).cut(hole4)
+
+        When placing holes at corners of a shape with dimensions L x W x H:
+        corner positions are always: (offset, offset), (L-offset, offset), (offset, W-offset), (L-offset, W-offset)
+        where offset = hole_radius * 2 + 2 (safe margin from edge)
+        ALWAYS cut holes using: plate = plate.cut(hole1).cut(hole2).cut(hole3).cut(hole4)
+        NEVER leave hole cylinders as separate floating objects.
+        NEVER use math functions unless geometry explicitly requires it.
+        Part.makeBox(length, width, height) needs no math. Use it directly.
+        When cutting multiple holes, chain the cuts: shape = shape.cut(h1).cut(h2).cut(h3)  
 
         NOTE:
         The final geometry resulting from all operations MUST be assigned to the variable final_shape before the closing lines.
