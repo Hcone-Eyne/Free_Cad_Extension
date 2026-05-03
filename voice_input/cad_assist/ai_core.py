@@ -95,26 +95,39 @@ def translator(user_request):
         wire2 = Part.Wire(Part.makeCircle(r2, App.Vector(0,0,height), App.Vector(0,0,1)))
         result = Part.makeLoft([wire1, wire2], True)
         
+
+        HOLLOW HEX TUBE (hollow hexagonal prism with wall thickness):
+        r = side_length
+        inner_r = r - wall_thickness
+        outer_pts = [App.Vector(r*math.cos(math.pi/2+2*math.pi*i/6), r*math.sin(math.pi/2+2*math.pi*i/6), 0) for i in range(6)]
+        outer_pts.append(outer_pts[0])
+        outer_wire = Part.Wire([Part.LineSegment(outer_pts[i], outer_pts[i+1]).toShape() for i in range(6)])
+        outer_face = Part.Face(outer_wire)
+        outer_solid = outer_face.extrude(App.Vector(0, 0, height))
+        inner_pts = [App.Vector(inner_r*math.cos(math.pi/2+2*math.pi*i/6), inner_r*math.sin(math.pi/2+2*math.pi*i/6), 0) for i in range(6)]
+        inner_pts.append(inner_pts[0])
+        inner_wire = Part.Wire([Part.LineSegment(inner_pts[i], inner_pts[i+1]).toShape() for i in range(6)])
+        inner_face = Part.Face(inner_wire)
+        inner_solid = inner_face.extrude(App.Vector(0, 0, height))
+        hollow_hex = outer_solid.cut(inner_solid)
+
+
         RULES:
         Only call doc.addObject(). Never addObject() on a shape.
         Never use App.ActiveDocument.removeObject().
         Re-create all previous context objects before adding new ones.
         If unclear, make a reasonable default shape.
         NEVER skip doc = App.newDocument('Model').
-        NEVER use math functions unless the geometry explicitly requires them. 
+        NEVER use math functions unless the geometry explicitly requires them.
         Part.makeBox(length, width, height) needs no math. Use it directly.
-        When creating holes in a shape, ALWAYS use .cut() to subtract each hole cylinder from the base shape. 
-        Never leave hole cylinders as separate floating objects. 
+        When creating holes in a shape, ALWAYS use .cut() to subtract each hole cylinder from the base shape.
+        Never leave hole cylinders as separate floating objects.
         Example: plate = plate.cut(hole1).cut(hole2).cut(hole3).cut(hole4)
-
         When placing holes at corners of a shape with dimensions L x W x H:
         corner positions are always: (offset, offset), (L-offset, offset), (offset, W-offset), (L-offset, W-offset)
         where offset = hole_radius * 2 + 2 (safe margin from edge)
-        ALWAYS cut holes using: plate = plate.cut(hole1).cut(hole2).cut(hole3).cut(hole4)
-        NEVER leave hole cylinders as separate floating objects.
-        NEVER use math functions unless geometry explicitly requires it.
-        Part.makeBox(length, width, height) needs no math. Use it directly.
-        When cutting multiple holes, chain the cuts: shape = shape.cut(h1).cut(h2).cut(h3)  
+        When cutting multiple holes, chain the cuts: shape = shape.cut(h1).cut(h2).cut(h3)
+        COUNTING RULE: When asked for N sides generate EXACTLY N sides. Hexagon = range(6). Never substitute.
 
         NOTE:
         The final geometry resulting from all operations MUST be assigned to the variable final_shape before the closing lines.
@@ -221,9 +234,6 @@ def translator(user_request):
         file.write(final_executable_code)
     print(f"Script of ai generated Saved\n Location:{ai_gen_script}")
     print("Qwen 2.5 successfully runned")
-
-    # store the current prompt in memory
-    stage_manager.script_saver("ai_gen_script.py", final_executable_code, user_request)
 
     # returning the script
     return file_name

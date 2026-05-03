@@ -49,7 +49,7 @@ def process_command(user_input: str) -> bool:
 
     # --- Step 2: Run the generated script in FreeCAD ---
     print(f"[Bridge] Executing script: {generated_script}")
-    runner.execute_cad_scripts(generated_script)
+    runner.execute_cad_scripts(generated_script, user_input)
     print("[Bridge] Script execution complete.")
     return True
 

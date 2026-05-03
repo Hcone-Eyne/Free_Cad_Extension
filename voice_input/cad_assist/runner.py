@@ -84,6 +84,7 @@ def script_verifier(result):
         and "Exception" not in result.stdout
         and "Error" not in result.stdout
     )
+
 # helper 3
 # this does is checks whichever stream (stderr or stdout) actually has the error message
 def error_catcher(result):
@@ -94,7 +95,7 @@ def error_catcher(result):
     return "Unknown Error"
 
 # 3. the executor (runns all the function)
-def execute_cad_scripts(script_name):
+def execute_cad_scripts(script_name,user_request):
 
     # i used import here to prevent 2 files fighting for access
     from voice_input.command_bridge import self_corrector
@@ -105,6 +106,9 @@ def execute_cad_scripts(script_name):
     
     # we define this so every part of code can access / see this
     log_report = logs_location / "error.report.txt"
+
+    # initialising log manager
+    correction_log = logs_location / "correction.log.txt"
 
     # calling defensive wall to check the code
     if not defense_wall(script_path_use):
@@ -149,6 +153,12 @@ def execute_cad_scripts(script_name):
             with open(log_report, "w") as file:
                 file.write("Last Run:\n")
                 file.write(result.stdout)
+
+            # save code to memory if the code actually works
+            from voice_input import stage_manager
+            stage_context = open(script_path_use).read()
+            stage_manager.script_saver(script_name, stage_context, user_request)
+
         else:
             # if failed we notify and store info in logs
             print(f"Failed \nCrash Script:{script_name}")
@@ -162,6 +172,13 @@ def execute_cad_scripts(script_name):
             # catch
             error_message = error_catcher(result)
 
+            # log error noting
+            with open(correction_log,"a")as file:
+                file.write(f"\n{'='*50}\n")
+                file.write(f"USER REQUEST: {user_request}\n")
+                file.write(f"SCRIPT: {script_name}\n")
+                file.write(f"ORIGINAL ERROR:\n{error_message}\n")
+
             # initialising the loop
             for attempt in range(1, max_attempts + 1):
                 print(f"Self Correction Triggered\nAttempt {attempt}/{max_attempts}")
@@ -169,19 +186,44 @@ def execute_cad_scripts(script_name):
                 with open(script_path_use,"w") as file:
                     file.write(new_code)
                 print("Code Successfully Corrected")
+
+                # saving log of correction
+                with open(correction_log,"a")as file:
+                    file.write(f"\nATTEMPT {attempt} - FIXED CODE:\n{new_code}\n")
+                    file.write(f"Applied Fix:\n{new_code}\n")
+
                 # running defence wall
                 defense_wall(script_path_use)
                 retry_result = correction_runner(script_path_use)
                 if script_verifier(retry_result):
                     print("Code fixed successfully")
+                    # logging
+                    with open(correction_log, "a") as file:
+                        file.write("PASS\n══════════════════════════\n")
+                    # exit loop
                     fixed = True
+
+                    # saving working code (not buggy codes)
+                    from voice_input import stage_manager
+                    stage_context = open(script_path_use).read()
+                    stage_manager.script_saver(script_name, stage_context, user_request)
+                    # end log
                     break
                 else:
                     print("Correction did not work")
+                    # log the new error
+                    with open(correction_log,"a")as file:
+                        file.write("Result:Still Failing\n")
+                        file.write(f"FAILED CODE:\n{new_code}\n")
+
                     error_message = error_catcher(retry_result)
+
             if not fixed:
                 print("Failed to fix script after max attempts")
-
+                # log the error again 
+                with open(correction_log,"a")as file:
+                    file.write(f"Final Result:{max_attempts} attempts failed\n")
+                    
             # execute again
             print("Self Correction Is Made, Rerunning the code")
             
