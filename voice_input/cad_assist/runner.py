@@ -21,7 +21,7 @@ from voice_input.Keys.config import output_location, script_location, logs_locat
 mandatory_path = [output_location, logs_location]
 for folder in mandatory_path:
     if not folder.exists():
-        print(f"Creating Folder:", {folder})
+        print(f"[Runner] Creating folder: {folder}")
         folder.mkdir(parents = True, exist_ok = True)
 
 # a defense mechanisim for not creating an invalid code by ai
@@ -244,6 +244,6 @@ def execute_cad_scripts(script_name,user_request):
     
 # 4. test run of runner.py
 if __name__ == "__main__":
-    # test the script 
-    execute_cad_scripts("ai_gen_script.py")
+    # FIX: execute_cad_scripts requires TWO args: script_name + user_request
+    execute_cad_scripts("ai_gen_script.py", "test run")
     

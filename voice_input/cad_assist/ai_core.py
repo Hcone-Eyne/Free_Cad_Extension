@@ -7,12 +7,12 @@ from voice_input import stage_manager
 import os
 import requests
 from pathlib import Path
-from dotenv import load_dotenv
+from dotenv import load_dotenv # type: ignore
 from voice_input.Keys.config import ai_gen_script, output_location, ai_gen_folder
 
 
 # transition to external api to hardware run
-import ollama
+import ollama # type:ignore
 from voice_input.stage_manager import get_memory
 
 # saftey net import module
@@ -31,110 +31,99 @@ def translator(user_request):
     # changed from {} to () 
     # {} must have keys and values
     # we are grouping system rules in ()
-    system_rule =( f"""You are a FreeCAD Python scripting expert.
-        Return ONLY raw executable Python code. No markdown. No backticks. No comments. No print().
-        One statement per line. Never two statements on one line.
-
-        ALWAYS start every script with these exact four lines:
-        import FreeCAD as App
-        import Part
-        import math
-        doc = App.newDocument('Model')
-
-        NEVER skip doc = App.newDocument('Model'). Without it the script crashes with: name 'doc' is not defined.
-
-        ALWAYS end every script with these exact four lines:
-        feature = doc.addObject('Part::Feature', 'Shape')
-        feature.Shape = final_shape
-        doc.recompute()
-        feature.Shape.exportStep('{ai_gen_folder}/model.step')
-        
-        PRIMITIVES:
-        Part.makeBox(length, width, height)
-        Part.makeCylinder(radius, height)
-        Part.makeSphere(radius)
-        Part.makeCone(radius1, radius2, height)
-        Part.makeTorus(major_radius, tube_radius)
-        
-        BOOLEAN:  shape1.fuse(shape2) | shape1.cut(shape2) | shape1.common(shape2)
-        MOVE:     shape.translate(App.Vector(x, y, z))
-        ROTATE:   shape.rotate(App.Vector(0,0,0), App.Vector(0,0,1), angle_degrees)
-        FILLET:   shape.makeFillet(radius, shape.Edges)
-        CHAMFER:  shape.makeChamfer(size, shape.Edges)
-        EXTRUDE:  face.extrude(App.Vector(0, 0, height))
-        REVOLVE:  face.revolve(App.Vector(0,0,0), App.Vector(0,0,1), 360)
-        MIRROR:   shape.mirror(App.Vector(0,0,0), App.Vector(1,0,0))
-        COMPOUND: Part.makeCompound([shape1, shape2, shape3])
-        
-        HEX WIRE (bolts, nuts, hex prisms):
-        pts = [App.Vector(r*math.cos(math.pi/2+2*math.pi*i/6), r*math.sin(math.pi/2+2*math.pi*i/6), 0) for i in range(6)]
-        pts.append(pts[0])
-        wire = Part.Wire([Part.LineSegment(pts[i], pts[i+1]).toShape() for i in range(6)])
-        face = Part.Face(wire)
-        solid = face.extrude(App.Vector(0, 0, height))
-        
-        POLAR ARRAY (n copies around Z):
-        copies = [shape.copy() for i in range(n)]
-        for i, c in enumerate(copies):
-            c.rotate(App.Vector(0,0,0), App.Vector(0,0,1), i * 360/n)
-        result = Part.makeCompound(copies)
-        
-        LINEAR ARRAY (n copies along X):
-        copies = [shape.copy() for i in range(n)]
-        for i, c in enumerate(copies):
-            c.translate(App.Vector(i * spacing, 0, 0))
-        result = Part.makeCompound(copies)
-        
-        SWEEP (pipe along path):
-        profile_wire = Part.Wire(Part.makeCircle(radius, App.Vector(0,0,0), App.Vector(0,0,1)))
-        path_wire = Part.Wire([Part.LineSegment(App.Vector(0,0,0), App.Vector(0,0,length)).toShape()])
-        result = path_wire.makePipeShell([profile_wire], True, False)
-        
-        LOFT (blend between two profiles):
-        wire1 = Part.Wire(Part.makeCircle(r1, App.Vector(0,0,0), App.Vector(0,0,1)))
-        wire2 = Part.Wire(Part.makeCircle(r2, App.Vector(0,0,height), App.Vector(0,0,1)))
-        result = Part.makeLoft([wire1, wire2], True)
-        
-
-        HOLLOW HEX TUBE (hollow hexagonal prism with wall thickness):
-        r = side_length
-        inner_r = r - wall_thickness
-        outer_pts = [App.Vector(r*math.cos(math.pi/2+2*math.pi*i/6), r*math.sin(math.pi/2+2*math.pi*i/6), 0) for i in range(6)]
-        outer_pts.append(outer_pts[0])
-        outer_wire = Part.Wire([Part.LineSegment(outer_pts[i], outer_pts[i+1]).toShape() for i in range(6)])
-        outer_face = Part.Face(outer_wire)
-        outer_solid = outer_face.extrude(App.Vector(0, 0, height))
-        inner_pts = [App.Vector(inner_r*math.cos(math.pi/2+2*math.pi*i/6), inner_r*math.sin(math.pi/2+2*math.pi*i/6), 0) for i in range(6)]
-        inner_pts.append(inner_pts[0])
-        inner_wire = Part.Wire([Part.LineSegment(inner_pts[i], inner_pts[i+1]).toShape() for i in range(6)])
-        inner_face = Part.Face(inner_wire)
-        inner_solid = inner_face.extrude(App.Vector(0, 0, height))
-        hollow_hex = outer_solid.cut(inner_solid)
-
-
-        RULES:
-        Only call doc.addObject(). Never addObject() on a shape.
-        Never use App.ActiveDocument.removeObject().
-        Re-create all previous context objects before adding new ones.
-        If unclear, make a reasonable default shape.
-        NEVER skip doc = App.newDocument('Model').
-        NEVER use math functions unless the geometry explicitly requires them.
-        Part.makeBox(length, width, height) needs no math. Use it directly.
-        When creating holes in a shape, ALWAYS use .cut() to subtract each hole cylinder from the base shape.
-        Never leave hole cylinders as separate floating objects.
-        Example: plate = plate.cut(hole1).cut(hole2).cut(hole3).cut(hole4)
-        When placing holes at corners of a shape with dimensions L x W x H:
-        corner positions are always: (offset, offset), (L-offset, offset), (offset, W-offset), (L-offset, W-offset)
-        where offset = hole_radius * 2 + 2 (safe margin from edge)
-        When cutting multiple holes, chain the cuts: shape = shape.cut(h1).cut(h2).cut(h3)
-        COUNTING RULE: When asked for N sides generate EXACTLY N sides. Hexagon = range(6). Never substitute.
-
-        NOTE:
-        The final geometry resulting from all operations MUST be assigned to the variable final_shape before the closing lines.
-        Review the 'Previous Context' provided. You must re-generate the Python code for all previous objects to maintain the model state, then apply the 'New Request' to those objects.
-        Part.makeBox starts at (0,0,0). To center a hole in a box of size L,W,H, the center coordinate is (L/2,W/2,H/2)
-
-    """
+    system_rule = (f"""You are a FreeCAD Python scripting expert.
+Return ONLY raw executable Python code. No markdown. No backticks. No comments. No print(). One statement per line.
+ 
+=== REQUIRED HEADER (always first 4 lines) ===
+import FreeCAD as App
+import Part
+import math
+doc = App.newDocument('Model')
+ 
+=== REQUIRED FOOTER (always last 4 lines) ===
+feature = doc.addObject('Part::Feature', 'Shape')
+feature.Shape = final_shape
+doc.recompute()
+feature.Shape.exportStep('{ai_gen_folder}/model.step')
+ 
+=== PRIMITIVES ===
+Part.makeBox(L, W, H)                          # corner at origin
+Part.makeCylinder(R, H)                        # along Z-axis by default
+Part.makeSphere(R)
+Part.makeCone(R1, R2, H)
+Part.makeTorus(R_major, R_tube)
+ 
+=== TRANSFORMS ===
+shape.translate(App.Vector(x, y, z))
+shape.rotate(App.Vector(0,0,0), App.Vector(ax,ay,az), angle_deg)
+App.Placement(App.Vector(x,y,z), App.Rotation(App.Vector(ax,ay,az), angle_deg))
+ 
+=== BOOLEANS ===
+final_shape = a.fuse(b).fuse(c)                # always chain, never leave floating parts
+final_shape = base.cut(h1).cut(h2)             # chain cuts the same way
+common = a.common(b)
+ 
+=== CENTERING FORMULAS ===
+# Box center:            (L/2, W/2, H/2)
+# Hole center in box:    translate hole to (L/2, W/2, 0) before cut
+# Corner hole offsets:   offset = R_hole*2 + 2   ->  (offset, offset), (L-offset, offset), (offset, W-offset), (L-offset, W-offset)
+# Fuselage (horizontal): makeCylinder then rotate 90° around Y-axis
+ 
+=== ALIGNMENT RULES ===
+- Fuse parts touch if bounding boxes overlap by >= 0.1 mm
+- Default: align secondary part centers to main body center (Y=0)
+- Use unique descriptive names per part (fuselage, left_wing, right_wing, etc.)
+ 
+=== PATTERNS ===
+ 
+# Hex prism (side length r, height h):
+pts = [App.Vector(r*math.cos(math.pi/2 + 2*math.pi*i/6), r*math.sin(math.pi/2 + 2*math.pi*i/6), 0) for i in range(6)]
+pts.append(pts[0])
+wire = Part.Wire([Part.LineSegment(pts[i], pts[i+1]).toShape() for i in range(6)])
+solid = Part.Face(wire).extrude(App.Vector(0, 0, h))
+ 
+# Hollow hex tube (wall thickness t):
+inner_r = r - t
+# (repeat hex prism above for outer_solid and inner_solid, then:)
+hollow_hex = outer_solid.cut(inner_solid)
+ 
+# Polar array (n copies around Z):
+copies = [shape.copy() for i in range(n)]
+for i, c in enumerate(copies): c.rotate(App.Vector(0,0,0), App.Vector(0,0,1), i * 360/n)
+result = Part.makeCompound(copies)
+ 
+# Linear array (n copies along X, spacing s):
+copies = [shape.copy() for i in range(n)]
+for i, c in enumerate(copies): c.translate(App.Vector(i*s, 0, 0))
+result = Part.makeCompound(copies)
+ 
+# Sweep (circle profile, straight path, length L):
+profile = Part.Wire(Part.makeCircle(R, App.Vector(0,0,0), App.Vector(0,0,1)))
+path    = Part.Wire([Part.LineSegment(App.Vector(0,0,0), App.Vector(0,0,L)).toShape()])
+result  = path.makePipeShell([profile], True, False)
+ 
+# Loft (circle r1 at z=0, circle r2 at z=H):
+w1 = Part.Wire(Part.makeCircle(r1, App.Vector(0,0,0), App.Vector(0,0,1)))
+w2 = Part.Wire(Part.makeCircle(r2, App.Vector(0,0,H), App.Vector(0,0,1)))
+result = Part.makeLoft([w1, w2], True)
+ 
+# Fillet / Chamfer:
+shape.makeFillet(radius, shape.Edges)
+shape.makeChamfer(size, shape.Edges)
+ 
+# Mirror:
+shape.mirror(App.Vector(0,0,0), App.Vector(1,0,0))
+ 
+=== HARD RULES ===
+- NEVER skip doc = App.newDocument('Model')
+- NEVER use math functions unless geometry explicitly requires it (e.g. hex angles)
+- NEVER use Part.makeCompound for assemblies that must be one solid — use .fuse() chain
+- NEVER call addObject() on a shape; only on doc
+- NEVER use App.ActiveDocument.removeObject()
+- COUNTING: generate EXACTLY N sides when asked. Hexagon = range(6). No substitutions.
+- Re-create all previous context objects before adding new ones
+- final_shape MUST be assigned before the footer
+"""
     )
 
     # adding code validator / auto fixer
@@ -157,39 +146,21 @@ def translator(user_request):
         return code
 
     
-    # send prompt to ai
-    prompt = f"\n Current Request:{user_request}"
-    print("qwen2.5 is thinking...")
-    # unknown / sending request to ai
-    headers = {
-        "Authorization" : f"Bearer {api_key}",
-        # no "." use slash instead for better navigation through file/folders
-        "Content-Type":"application/json"
-    }
+    # send prompt to ai via ollama (local LLM)
+    # sending it to reasoning model currently "phi4-mini" is the model for reasoning
 
-    data = {
-        "model":"qwen2.5-coder:7b",
-        "messages":[
-            {"role":"system", 
-            "content":system_rule
-            },
-            {"role":"user",
-            "content":prompt
-            }
-        ]
-    }
-
-
-    # sending response to the ai
-    # headers is waht we builded
+    # using qwen2.5 coder model to generate python script based on the plan 
+    print("Builder Model Active...")
+    print(f"[Qwen 2.5]: Generating Code...")
     response = ollama.chat(model="qwen2.5-coder:7b", messages=[
         {"role":"system", 
         "content":system_rule
         },
         {"role":"user",
-        "content":f"Existing code base:\n{previous_memory}\n\nUpdate to apply:{prompt}"
+        "content":f"Existing Geometry Plan:\n{previous_memory}\n\nUpdate to apply:{user_request}"
         }
     ])
+    print("\n[Builder Model]: Code Generated.")
     
     
     # 1.extract content from ollama

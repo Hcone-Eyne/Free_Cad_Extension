@@ -8,7 +8,7 @@
 # the Tcl/Tk event notifier if used on the main thread.
 # ============================================================
 
-import speech_recognition as sr
+import speech_recognition as sr # type: ignore
 import sys
 from pathlib import Path
 

@@ -21,7 +21,8 @@ def script_saver(script_name, script_content, user_prompt, parameters = {"key":"
     # 2nd principle type sheielding preveing loop crash "Not a string"
     # this condition is going to convert set {} into string()
     if isinstance(script_content, set):
-        script_content = list(script_name)[0]
+        # FIX: was list(script_name) — should be list(script_content)
+        script_content = list(script_content)[0]
 
     clean_name = str(script_name)
     clean_parameters = parameters if isinstance(parameters,dict) else {}
@@ -54,8 +55,8 @@ def script_saver(script_name, script_content, user_prompt, parameters = {"key":"
     # saving the memory
     with open(memory_path, "w") as file:
         json.dump(store_data, file , indent=4)
-    print(f"Memory Saved \nMemory Saved Location:{memory_path}") 
-    print("Memory Upated")   
+    print(f"[Memory] Saved → {memory_path}")
+    print("[Memory] Updated successfully.")
 
 ''' improved memory loader '''
 
@@ -68,7 +69,8 @@ def load_memory():
             print("memory path isn't exists yet")
             return None
     except Exception as e:
-        print("Memory is either empty or corrupted:\n{e}")
+        # FIX: missing f-prefix meant {e} printed literally
+        print(f"Memory is either empty or corrupted:\n{e}")
         return None
 
     # checking file is empthy before reading
